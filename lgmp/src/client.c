@@ -98,8 +98,10 @@ static bool cacheClientQueue(PLGMPClient client, uint32_t index,
     size_t firstMessageOffset, PLGMPClientQueue queue)
 {
   struct LGMPHeaderQueue * hq = &client->header->queues[index];
-  const uint32_t numMessages = hq->numMessages;
-  const size_t messagesOffset = hq->messagesOffset;
+  const uint32_t numMessages =
+    *(const volatile uint32_t *)&hq->numMessages;
+  const size_t messagesOffset =
+    *(const volatile uint32_t *)&hq->messagesOffset;
 
   if (numMessages < 2 || !LGMP_IS_POW2(numMessages) ||
       messagesOffset < firstMessageOffset ||
@@ -168,7 +170,7 @@ static bool snapshotClientQueueState(PLGMPClientQueue queue,
   struct LGMPHeaderQueue * hq = queue->hq;
   state->position = atomic_load_explicit(&hq->position,
       memory_order_relaxed);
-  state->start = hq->start;
+  state->start = *(const volatile uint32_t *)&hq->start;
   state->count = atomic_load_explicit(&hq->count, memory_order_relaxed);
 
   return state->position < queue->numMessages &&
@@ -214,9 +216,9 @@ static void clearSubscriberMessages(PLGMPClientQueue queue, uint32_t bit)
 static bool snapshotClientPayload(PLGMPClientQueue queue,
     const struct LGMPHeaderMessage * message, PLGMPMessage result)
 {
-  const uint64_t udata = message->udata;
-  const uint32_t size = message->size;
-  const size_t offset = message->offset;
+  const uint64_t udata = *(const volatile uint64_t *)&message->udata;
+  const uint32_t size = *(const volatile uint32_t *)&message->size;
+  const size_t offset = *(const volatile uint32_t *)&message->offset;
 
   if (offset > queue->client->size ||
       size > queue->client->size - offset)

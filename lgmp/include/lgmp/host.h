@@ -65,11 +65,12 @@ bool        lgmpHostQueuePayloadPending(PLGMPHostQueue queue,
 // True while an entry matching payload and udata still has pending recipients.
 bool        lgmpHostQueueMessagePending(PLGMPHostQueue queue,
     PLGMPMemory payload, uint64_t udata);
-LGMP_STATUS lgmpHostReadData(PLGMPHostQueue queue, void * data, size_t * size);
+LGMP_STATUS lgmpHostReadData(PLGMPHostQueue queue, void * data,
+    size_t capacity, size_t * size);
 
 // Read client data and return the validated sending subscriber's client ID.
 LGMP_STATUS lgmpHostReadDataWithSource(PLGMPHostQueue queue, void * data,
-    size_t * size, uint32_t * clientID);
+    size_t capacity, size_t * size, uint32_t * clientID);
 LGMP_STATUS lgmpHostAckData(PLGMPHostQueue queue);
 LGMP_STATUS lgmpHostGetClientIDs(PLGMPHostQueue queue, uint32_t clientIDs[32],
     unsigned int * count);

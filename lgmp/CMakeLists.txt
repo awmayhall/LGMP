@@ -81,6 +81,7 @@ if(LGMP_BUILD_TESTS)
 
   lgmp_add_test_executable(lgmp-core-test        tests/core_test.c)
   lgmp_add_test_executable(lgmp-queue-test       tests/queue_test.c)
+  target_include_directories(lgmp-queue-test PRIVATE src)
   lgmp_add_test_executable(lgmp-stream-test      tests/stream_test.c)
   lgmp_add_test_executable(lgmp-spmc-test        tests/spmc_test.c)
   lgmp_add_test_executable(lgmp-concurrency-test tests/concurrency_test.c)
@@ -95,6 +96,12 @@ if(LGMP_BUILD_TESTS)
     COMMAND lgmp-queue-test capacity)
   add_test(NAME lgmp-queue-client-data
     COMMAND lgmp-queue-test client-data)
+  add_test(NAME lgmp-queue-client-data-bounds
+    COMMAND lgmp-queue-test client-data-bounds)
+  add_test(NAME lgmp-queue-client-data-avail-corrupt
+    COMMAND lgmp-queue-test client-data-avail-corrupt)
+  add_test(NAME lgmp-queue-client-data-refusal-cap
+    COMMAND lgmp-queue-test client-data-refusal-cap)
   add_test(NAME lgmp-stream-host-to-client
     COMMAND lgmp-stream-test host-to-client)
   add_test(NAME lgmp-stream-client-to-host
@@ -112,6 +119,9 @@ if(LGMP_BUILD_TESTS)
     lgmp-queue-targeted
     lgmp-queue-capacity
     lgmp-queue-client-data
+    lgmp-queue-client-data-bounds
+    lgmp-queue-client-data-avail-corrupt
+    lgmp-queue-client-data-refusal-cap
     lgmp-stream-host-to-client
     lgmp-stream-client-to-host
     lgmp-spmc-basic

@@ -653,12 +653,12 @@ bool lgmpHostQueueMessagePending(PLGMPHostQueue queue, PLGMPMemory payload,
 }
 
 LGMP_STATUS lgmpHostReadDataWithSource(PLGMPHostQueue queue,
-    void * restrict data, size_t * restrict size,
+    void * restrict data, size_t capacity, size_t * restrict size,
     uint32_t * restrict clientID)
 {
   struct LGMPHeaderQueue *hq = queue->hq;
 
-  for(;;)
+  for(unsigned int refused = 0; refused < LGMP_MSGS_MAX; ++refused)
   {
     if (atomic_load_explicit(&hq->cMsgAvail,
           memory_order_acquire) == LGMP_MSGS_MAX)
@@ -667,12 +667,14 @@ LGMP_STATUS lgmpHostReadDataWithSource(PLGMPHostQueue queue,
     LGMP_QUEUE_LOCK(hq);
     LGMP_LOCK(hq->cMsgLock);
 
-    if (atomic_load_explicit(&hq->cMsgAvail,
-          memory_order_relaxed) == LGMP_MSGS_MAX)
+    const uint32_t avail = atomic_load_explicit(&hq->cMsgAvail,
+        memory_order_relaxed);
+    if (avail >= LGMP_MSGS_MAX)
     {
       LGMP_UNLOCK(hq->cMsgLock);
       LGMP_QUEUE_UNLOCK(hq);
-      return LGMP_ERR_QUEUE_EMPTY;
+      return avail == LGMP_MSGS_MAX ?
+        LGMP_ERR_QUEUE_EMPTY : LGMP_ERR_CORRUPTED;
     }
 
     struct LGMPClientMessage *msg = &hq->cMsgs[queue->cMsgPos];
@@ -684,6 +686,10 @@ LGMP_STATUS lgmpHostReadDataWithSource(PLGMPHostQueue queue,
     LGMP_PREFETCH_R(&hq->cMsgs[n2], 1);
 #endif
 
+    const uint32_t msgSize =
+      *(const volatile uint32_t *)&msg->size;
+    const uint32_t msgClientID =
+      *(const volatile uint32_t *)&msg->clientID;
     const uint32_t subs =
       atomic_load_explicit(&hq->subs, memory_order_relaxed);
     bool valid = false;
@@ -692,19 +698,20 @@ LGMP_STATUS lgmpHostReadDataWithSource(PLGMPHostQueue queue,
       const uint32_t bit = 1U << id;
       if ((LGMP_SUBS_ON(subs) & bit) &&
           !(LGMP_SUBS_BAD(subs) & bit) &&
-          hq->clientID[id] == msg->clientID)
+          hq->clientID[id] == msgClientID)
       {
         valid = true;
         break;
       }
     }
+    valid = valid && msgSize <= LGMP_MSGS_SIZE && msgSize <= capacity;
 
     if (valid)
     {
-      memcpy(data, msg->data, msg->size);
-      *size = msg->size;
+      memcpy(data, msg->data, msgSize);
+      *size = msgSize;
       if (clientID)
-        *clientID = msg->clientID;
+        *clientID = msgClientID;
     }
 
     atomic_fetch_add_explicit(&hq->cMsgAvail, 1, memory_order_release);
@@ -718,12 +725,14 @@ LGMP_STATUS lgmpHostReadDataWithSource(PLGMPHostQueue queue,
     if (valid)
       return LGMP_OK;
   }
+
+  return LGMP_ERR_QUEUE_EMPTY;
 }
 
 LGMP_STATUS lgmpHostReadData(PLGMPHostQueue queue, void * restrict data,
-    size_t * restrict size)
+    size_t capacity, size_t * restrict size)
 {
-  return lgmpHostReadDataWithSource(queue, data, size, NULL);
+  return lgmpHostReadDataWithSource(queue, data, capacity, size, NULL);
 }
 
 LGMP_STATUS lgmpHostAckData(PLGMPHostQueue queue)

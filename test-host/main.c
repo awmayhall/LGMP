@@ -125,7 +125,7 @@ int main(int argc, char * argv[])
 
       uint8_t buffer[LGMP_MSGS_SIZE];
       size_t size;
-      while((status = lgmpHostReadData(queue, buffer, &size)) == LGMP_OK)
+      while((status = lgmpHostReadData(queue, buffer, sizeof(buffer), &size)) == LGMP_OK)
       {
         printf("Read a client message of %d in size\n", size);
         ++pendingAck;
