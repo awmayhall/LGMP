@@ -629,7 +629,7 @@ static struct LGMPHeaderQueue * findHeaderQueue(struct TestFixture * fixture)
 static bool clientDataAvailCorrupt(struct ClientDataRig * rig)
 {
   struct LGMPHeaderQueue * hq = findHeaderQueue(&rig->fixture);
-  if (!TEST_CHECK(hq != NULL))
+  if (!TEST_CHECK(hq != NULL) || !testFixtureStop(&rig->fixture))
     return false;
 
   static const char message[] = "survives the corrupt counter";
@@ -669,6 +669,61 @@ static bool clientDataAvailCorrupt(struct ClientDataRig * rig)
         LGMP_OK) &&
     TEST_CHECK(size == sizeof(message)) &&
     TEST_CHECK(memcmp(buffer, message, sizeof(message)) == 0);
+}
+
+static bool processReportsRing(PLGMPHost host, struct LGMPHeaderQueue * hq,
+    const char * state)
+{
+  for(uint32_t avail = 0U; avail <= LGMP_MSGS_MAX; ++avail)
+  {
+    atomic_store_explicit(&hq->cMsgAvail, avail, memory_order_relaxed);
+    if (!testExpectStatus("in range lgmpHostProcess",
+          lgmpHostProcess(host), LGMP_OK))
+    {
+      fprintf(stderr, "%s cMsgAvail %u\n", state, avail);
+      return false;
+    }
+  }
+
+  static const uint32_t corrupt[] =
+    { LGMP_MSGS_MAX + 1U, LGMP_MSGS_MAX * 2U, UINT32_MAX };
+  for(size_t i = 0; i < sizeof(corrupt) / sizeof(*corrupt); ++i)
+  {
+    atomic_store_explicit(&hq->cMsgAvail, corrupt[i], memory_order_relaxed);
+    if (!testExpectStatus("corrupt cMsgAvail lgmpHostProcess",
+          lgmpHostProcess(host), LGMP_ERR_CORRUPTED) ||
+        !TEST_CHECK(atomic_load_explicit(&hq->cMsgAvail,
+          memory_order_relaxed) == corrupt[i]))
+    {
+      fprintf(stderr, "%s cMsgAvail %u\n", state, corrupt[i]);
+      return false;
+    }
+  }
+
+  atomic_store_explicit(&hq->cMsgAvail, LGMP_MSGS_MAX, memory_order_relaxed);
+  return true;
+}
+
+static bool clientRingCorruptProcess(struct ClientDataRig * rig)
+{
+  struct LGMPHeaderQueue * hq = findHeaderQueue(&rig->fixture);
+  if (!TEST_CHECK(hq != NULL) || !testFixtureStop(&rig->fixture) ||
+      !TEST_CHECK(lgmpHostQueuePending(rig->hostQueue) == 0U) ||
+      !processReportsRing(rig->fixture.host, hq, "idle queue"))
+    return false;
+
+  static const char message[] = "pending host message";
+  PLGMPMemory payload = NULL;
+  if (!allocatePayload(&rig->fixture, message, sizeof(message), &payload))
+    return false;
+
+  const bool posted = testExpectStatus("lgmpHostQueuePost",
+      lgmpHostQueuePost(rig->hostQueue, 1U, payload), LGMP_OK);
+  const bool success = posted &&
+    TEST_CHECK(lgmpHostQueuePending(rig->hostQueue) == 1U) &&
+    processReportsRing(rig->fixture.host, hq, "pending queue");
+  lgmpHostMemFree(&payload);
+  return success;
 }
 
 struct RefusalFlood
@@ -753,6 +808,8 @@ int main(int argc, char * argv[])
     success = runClientDataRig(clientDataBounds);
   else if (strcmp(argv[1], "client-data-avail-corrupt") == 0)
     success = runClientDataRig(clientDataAvailCorrupt);
+  else if (strcmp(argv[1], "client-ring-corrupt-process") == 0)
+    success = runClientDataRig(clientRingCorruptProcess);
   else if (strcmp(argv[1], "client-data-refusal-cap") == 0)
     success = runClientDataRig(clientDataRefusalCap);
   else

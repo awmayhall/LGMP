@@ -37,6 +37,7 @@ LGMP_STATUS lgmpHostInit(void *mem, const uint32_t size, PLGMPHost * result,
     uint32_t udataSize, uint8_t * udata);
 void        lgmpHostFree   (PLGMPHost * host);
 LGMP_STATUS lgmpHostProcess(PLGMPHost host);
+uint32_t    lgmpHostSessionID(PLGMPHost host);
 
 struct LGMPQueueConfig
 {

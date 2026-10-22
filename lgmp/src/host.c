@@ -335,6 +335,10 @@ LGMP_STATUS lgmpHostProcess(PLGMPHost host)
     uint32_t invalidClientIDs[LGMP_MAX_CLIENTS];
     unsigned int invalidClientCount = 0;
 
+    if (unlikely(atomic_load_explicit(&hq->cMsgAvail,
+          memory_order_relaxed) > LGMP_MSGS_MAX))
+      return LGMP_ERR_CORRUPTED;
+
     if (atomic_load_explicit(&hq->count, memory_order_acquire) == 0)
       continue;
 
@@ -413,6 +417,12 @@ LGMP_STATUS lgmpHostProcess(PLGMPHost host)
   }
 
   return LGMP_OK;
+}
+
+uint32_t lgmpHostSessionID(PLGMPHost host)
+{
+  assert(host);
+  return host->sessionID;
 }
 
 size_t lgmpHostMemAvail(PLGMPHost host)

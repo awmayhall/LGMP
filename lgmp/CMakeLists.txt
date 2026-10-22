@@ -100,6 +100,8 @@ if(LGMP_BUILD_TESTS)
     COMMAND lgmp-queue-test client-data-bounds)
   add_test(NAME lgmp-queue-client-data-avail-corrupt
     COMMAND lgmp-queue-test client-data-avail-corrupt)
+  add_test(NAME lgmp-queue-client-ring-corrupt-process
+    COMMAND lgmp-queue-test client-ring-corrupt-process)
   add_test(NAME lgmp-queue-client-data-refusal-cap
     COMMAND lgmp-queue-test client-data-refusal-cap)
   add_test(NAME lgmp-stream-host-to-client
@@ -121,6 +123,7 @@ if(LGMP_BUILD_TESTS)
     lgmp-queue-client-data
     lgmp-queue-client-data-bounds
     lgmp-queue-client-data-avail-corrupt
+    lgmp-queue-client-ring-corrupt-process
     lgmp-queue-client-data-refusal-cap
     lgmp-stream-host-to-client
     lgmp-stream-client-to-host
